@@ -1,0 +1,5 @@
+{{extend 'layout.html'}}
+
+<h1>This is the requested_books.html template</h1>
+<button onClick="window.location.reload();">
+{{=requested_books}}

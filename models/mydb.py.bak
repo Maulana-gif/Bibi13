@@ -1,0 +1,104 @@
+# -*- coding: utf-8 -*-
+import datetime
+
+#mydb = DAL('mysql://maulana:welcome@localhost/libdb')
+mydb = DAL('sqlite://storage.sqlite')
+
+mydb.define_table('author', 
+    Field('name','string',unique=True, required = True, notnull = True),
+    Field('age', 'integer',),
+    Field('gender', 'string'),
+    Field('image', 'upload'),
+    
+) 
+
+mydb.define_table('location', 
+    Field('location_name', 'string')
+)
+
+mydb.define_table('book', 
+    Field('title', 'string', notnull=True),
+    Field('publish_date', 'date', notnull=True),
+    Field('isbn', 'string', notnull=True, unique=True),
+    Field('author', mydb.author),
+    Field('trailer', 'text', notnull=True),
+    Field('image', 'upload',notnull=True),   
+)
+mydb.book._before_insert.append( lambda f: before_insert_book(f) )
+'''
+def before_insert_book(fields):
+    inDB = mydb(mydb.book.isbn == fields["isbn"]).count()
+    if( inDB != 0 ):
+        return True;
+'''
+    
+
+
+
+mydb.define_table('status', 
+    Field('value', 'string',required = True, notnull = True)
+)
+
+mydb.define_table('handling_of_the_book', 
+    Field('book',mydb.book, requires = IS_IN_DB(mydb, 'book.id', '%(title)s')),
+    Field('status',mydb.status, requires = IS_IN_DB(mydb, 'status.id', '%(value)s')),
+    Field('location',mydb.location, requires = IS_IN_DB(mydb, 'location.id', '%(location_name)s')),
+)
+
+mydb.define_table('book_order_checkout', 
+    Field('check_out', 'date'),
+    Field('username', 'string'),
+    Field('user_id', 'integer'),
+    Field('status', mydb.status, requires = IS_IN_DB(mydb, 'status.id', '%(id)s')),
+    Field('handling_of_the_book', mydb.handling_of_the_book, requires = IS_IN_DB(mydb, 'handling_of_the_book.id', '%(id)s')),
+)
+
+mydb.define_table('book_order_past', 
+    Field('check_in', 'date'),
+    Field('check_out', 'date'),
+    Field('username', 'string'),
+    Field('user_id', 'integer'),
+    Field('status', mydb.status, requires = IS_IN_DB(mydb, 'status.id', '%(value)s')),
+    Field('handling_of_the_book', mydb.handling_of_the_book)
+)
+
+#mydb.book.isbn.represent = lambda isbn, row:('{:20.50}'.format(isbn)).replace('.0', '')
+mydb.book.title.represent = lambda title, row:('{:40.50}'.format(title)).replace('.0', '')
+mydb.book.publish_date.represent = lambda publish_date, row:('{:%d-%m-%Y}'.format(publish_date)) if publish_date != None else ''
+mydb.book.author.represent = lambda author, row: '{} ({})'.format(author.name, author.gender) if author != None else 'Missing author'
+
+'''
+mydb.book.image.represent = lambda image, row: XML("""
+ <span onclick='$(\"#imageModal #book_image\").attr(\"src\",\""""+URL('admin', 'download', args=image)+"""\");$(\"#imageModal\").modal(\"show\");' class="glyphicon glyphicon-picture" data-toggle="modal" data-target="#imageModal">
+</span>""") if image != None else '' 
+'''
+#NOTE the edit method of sqlgrid uses a different (custom) represent for picures with different size and an upload button, that overrides this 
+mydb.book.image.represent = lambda image, row: IMG(_src=URL('admin', 'download', args=image), 
+                                                _class='book_image',
+                                                _width='50px',
+                                                _onclick='$("#image_container").attr("src","'+URL("admin", "download", args=image)+'");$("#imageModal").modal("show");',
+                                                ) if image else ''
+
+mydb.author.image.represent = lambda image, row: IMG(_src=URL('admin', 'download', args=image), 
+                                                _class='author_image',
+                                                _width='50px',
+                                                _onclick='$("#image_container").attr("src","'+URL("admin", "download", args=image)+'");$("#imageModal").modal("show");',
+                                                )    if image else ''
+
+
+
+mydb.book.author.requires = IS_IN_DB(mydb, 'author.id', '%(name)s')
+
+#mydb.book.title.represent = lambda book, row: '{}'.format(book.title) if book != None else ''
+
+mydb.handling_of_the_book.book.represent = lambda book, row: '{}'.format(book.title) if book != None else ''
+mydb.handling_of_the_book.status.represent = lambda status, row: '{}'.format(status.value) if status != None else ''
+mydb.handling_of_the_book.location.represent = lambda location, row: '{}'.format(location.location_name) if location != None else ''
+
+mydb.book_order_checkout.check_out.represent = lambda check_out, row:('{:%d-%m-%Y}'.format(check_out)) if check_out != None else ''
+mydb.book_order_past.status.represent = lambda status, row:('{}'.format(status.value)) if status != None else ''
+mydb.book_order_past.check_out.represent = lambda check_out, row:('{:%d-%m-%Y}'.format(check_out)) if check_out != None else ''
+mydb.book_order_past.check_in.represent = lambda check_in, row:('{:%d-%m-%Y}'.format(check_in)) if check_in != None else ''
+
+#mydb.book_order_checkout.handling_of_the_book.represent = lambda handling_of_the_book, row: '{}'.format(handling_of_the_book.book_title,handling_of_the_book.book_publish_date, handling_of_the_book.book_author, handling_of_the_book.status) if handling_of_the_book != None else ''
+#mydb.handling_of_the_book.status.requires = IS_IN_DB(mydb, 'status.id', '%(value)s')

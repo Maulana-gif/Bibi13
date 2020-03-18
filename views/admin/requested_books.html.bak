@@ -1,0 +1,8 @@
+{{extend 'layout.html'}}
+
+<h2>This is the requested book</h2>
+<button onclick=window.location.reload();>Refresh</button>
+{{=grid}}
+<br/><br/><br/>
+<h2>Checkin books</h2>
+{{=grid_checkin}}

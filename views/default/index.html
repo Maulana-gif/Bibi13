@@ -1,0 +1,20 @@
+{{extend 'layout.html'}}
+<link rel="stylesheet" href="{{=URL('static','css/style.css')}}"/>
+{{block header}}
+<div class="jumbotron jumbotron-fluid background" style="background-color: #333; color:white; padding:30px;word-wrap:break-word;">
+  <div class="container center">
+    {{if auth.user:}}
+    <h1 class="display-5">Welcome {{=auth.user.first_name}}</h1>
+    {{else:}}
+    <h1 class="display-5">Welcome</h1>
+    {{pass}}
+  </div>
+</div>
+{{end}}
+<h1><span class="badge badge-secondary">Recently arrived Books</span></h1>
+
+<div class="row">
+  <div id="new_books" class="col-md-12">
+      {{=new_books}}
+  </div>
+</div>

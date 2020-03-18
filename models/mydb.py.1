@@ -1,0 +1,66 @@
+# -*- coding: utf-8 -*-
+import datetime
+
+
+mydb = DAL('sqlite://mydb.sqlite')
+
+mydb.define_table('group', 
+    Field('name', 'string'),
+    Field('permissions', 'string')
+)
+
+mydb.define_table('user', 
+    Field('first_name', 'string'),
+    Field('family_name', 'string'),
+    Field('username', 'string'),
+    Field('password', 'string'),
+    Field('group', mydb.group)
+    ) 
+
+mydb.define_table('order', 
+    Field('check_in', 'date'),
+    Field('check_out', 'date'),
+    Field('due_date', 'date'),
+    Field('number_of_days', 'integer'),
+    Field('user', mydb.user),
+    Field('available_book', mydb.available_book)
+                  
+    )
+
+mydb.define_table('available_book', 
+    Field('book_copy', 'integer'),
+    Field('status', mydb.status),
+    Field('book', mydb.book)
+    )
+mydb.define_table('status', 
+    Field('free', 'string'),
+    Field('out', 'string'),
+    Field('lost', 'string'),
+    Field('requested', 'string'),
+    Field('available_book', mydb.available_book)
+)
+
+mydb.define_table('book', 
+    Field('title', 'string'),
+    Field('publish_date', 'date',required = True, notnull = True), #, default = datetime.date.today()),
+    Field('isbn', 'double'),
+    #Field('isbn', 'double', represent = lambda isbn, row:('{:20.50}'.format(isbn)).replace('.0', '')),
+    #Field('author', 'reference author'),
+    Field('author', mydb.author)
+)
+
+mydb.define_table('author', 
+    Field('name','string'),
+    Field('age', 'integer'),
+    Field('gender', 'string')
+    ) 
+
+
+
+    
+mydb.book.isbn.represent = lambda isbn, row:('{:20.50}'.format(isbn)).replace('.0', '')
+mydb.book.title.represent = lambda title, row:('{:40.50}'.format(title)).replace('.0', '')
+mydb.book.publish_date.represent = lambda publish_date, row:('{:%d-%m-%Y}'.format(publish_date)) if publish_date != None else ''
+mydb.book.author.represent = lambda author, row: '{} ({})'.format(author.name, author.gender) if author != None else 'Missing author'
+
+mydb.book.author.requires = IS_IN_DB(mydb, 'author.id', '%(name)s')

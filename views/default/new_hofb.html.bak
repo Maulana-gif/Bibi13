@@ -1,0 +1,6 @@
+{{extend 'layout.html'}}
+
+{{=form}}
+<h1>Submitted book</h1>
+Book: {{=request.vars.book}}<br/>
+Quantrity: {{=request.vars.quantity}}

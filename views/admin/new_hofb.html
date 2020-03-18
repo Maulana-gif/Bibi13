@@ -1,0 +1,7 @@
+{{extend 'layout.html'}}
+
+{{=form}}
+<h1>Submitted book</h1>
+Book: {{=request.vars.book.replace("none","")}}<br/>
+Quantity: {{=request.vars.quantity}}<br/>
+Location: {{=request.vars.location}}

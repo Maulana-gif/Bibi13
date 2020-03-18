@@ -1,0 +1,167 @@
+# -*- coding: utf-8 -*-
+# this file is released under public domain and you can use without limitations
+
+#########################################################################
+## This is a sample controller
+## - index is the default action of any application
+## - user is required for authentication and authorization
+## - download is for downloading files uploaded in the db (does streaming)
+#########################################################################
+
+@auth.requires(auth.has_membership('approved_user'))
+def active_orders():
+    grid = SQLFORM.grid(mydb( mydb.book_order_checkout.user_id == auth.user_id), #show checked out books for logged in user
+                     left = [ mydb.handling_of_the_book.on( mydb.handling_of_the_book.id == mydb.book_order_checkout.handling_of_the_book ), #left join handling table
+                              mydb.book.on( mydb.handling_of_the_book.book == mydb.book.id )], #left join book table
+                     fields = [ mydb.book_order_checkout.id, mydb.book.title, mydb.book.image, mydb.book_order_checkout.check_out, mydb.handling_of_the_book.status ], 
+                     deletable = False,
+                     editable = False,
+                     create = False,
+                     maxtextlength=100,
+                     details = False,
+                     csv = False,
+                     links=[lambda row: generate_cancel_order_button(row)])
+                        
+    return {'active_orders':grid}
+
+def generate_cancel_order_button(row):
+    if ( row.handling_of_the_book.status == 21 ):
+        return A(T('Cancel'), #button for checking in a book
+                     _href=URL('user', 'cancel_order', args=row.book_order_checkout.id),
+                     _class='button btn btn-default',
+                     _name='btnUpdate'
+                     )
+    return ''
+
+@auth.requires(auth.has_membership('approved_user'))
+def cancel_order():
+    book_order_checkout_id = request.args(0)
+    hb_id = mydb( (mydb.book_order_checkout.id == book_order_checkout_id) ).select(mydb.book_order_checkout.handling_of_the_book)[0]["handling_of_the_book"]
+    mydb(mydb.book_order_checkout.id == book_order_checkout_id).delete() 
+    mydb(mydb.handling_of_the_book.id == hb_id ).update(status=17)    
+    redirect(URL('user', 'active_orders'))
+
+@auth.requires(auth.has_membership('approved_user'))
+def past_orders():
+    grid = SQLFORM.grid(mydb( mydb.book_order_past.user_id == auth.user_id), #show past book orders for logged in user
+                     left = [ mydb.handling_of_the_book.on( mydb.handling_of_the_book.id == mydb.book_order_past.handling_of_the_book ), #left join handling table
+                              mydb.book.on( mydb.handling_of_the_book.book == mydb.book.id )], #left join book table
+                     fields = [ mydb.book.title, mydb.book_order_past.check_out, mydb.book.image, mydb.book_order_past.check_in, mydb.book_order_past.status ],
+                     deletable = False,
+                     editable = False,
+                     create = False,
+                     maxtextlength=100,
+                     details = False,
+                     csv = False,
+                       ) 
+    return {'past_orders':grid}
+
+
+#new_hofb() = new_handling_of_the_book():
+def new_hofb():
+
+    #creating a standard SQLFORM from the handling_of_the_book table
+    form = SQLFORM(mydb.handling_of_the_book,
+                    fields=['book'],
+                    )
+    #creating new quantity variables which are used to display an additional field to the form
+    #as quantity is not part of the handling_of_the_book table
+    quantity_label = LABEL('Quantity', _class='form-control-label col-sm-3', _for='handling_of_the_book_copy_quantity')
+    quantity_input = DIV( 
+                        INPUT(_name='quantity', _value=1, _type='number', _min="1", _id='handling_of_the_book_copy_quantity', _class='generic-widget form-control'),  
+                        _class='col-sm-9' 
+                        )
+    quantity_element = DIV(  _class='form-group row', _id='handling_of_the_book_quantity__row')
+    quantity_element.append(quantity_label)
+    quantity_element.append(quantity_input)
+
+    #adding quantity label and field, to the form, using the correct format (structure, classes, ids, ...)
+    form[0].insert(-1, quantity_element)
+
+    #TODO (1) handle the form input
+    #TODO (2) create a new handling_of_the_book row "quantity" times, and insert them in the db
+    #DONE (3) validate quantity (1 or more, error on 0 or negative)
+    #DONE (4) tell the admin user the result of the action (ok, error)
+
+    #attempting to get from variables and handle them (1 and 4, the rest if for later)
+    #if form.accepts(request, session):
+        #hell and damnation! the SQLFORM is inserting records automatically!!! I have to handle the additional values by hand... but how?
+        #the work is done by the "accepts" method! nasty code!
+
+    
+    if form.process(onvalidation=new_hofb_validation, dbio=False).accepted:
+        #we use the form vars, which are now validated
+        book_id = int(form.vars.book)
+        quantity = int(form.vars.quantity)
+        status = 17   #hard coding the status id, should be using a select but I do thid as placehodler, I'll do the select afterwards
+
+        #TODO point (2)
+        #create the records 
+        #insert the records
+
+        for n in range(quantity):
+            mydb.handling_of_the_book.insert(book=book_id, status=17)
+
+        request.vars.book = mydb( mydb.book.id == book_id ).select( mydb.book.title )[0]['title']
+        response.flash = 'Books records created'
+    elif form.errors:
+        response.flash = 'Please check the form for errors'
+    else:
+        response.flash = 'Dear Librarian, here you can add new books to the library. Beware of rats'
+
+    if request.vars.book is None:
+        request.vars.book = ''
+        request.vars.quantity = ''
+        
+    return dict(form=form)
+@auth.requires(auth.has_membership('approved_user'))
+def book_overview():
+    grid = SQLFORM.grid( mydb( mydb.handling_of_the_book.status == 17), #only show free books
+                     left = [mydb.handling_of_the_book.on(mydb.handling_of_the_book.book == mydb.book.id ),
+                            mydb.location.on(mydb.handling_of_the_book.location == mydb.location.id)], #join location table
+                     fields = [mydb.book.id, mydb.book.title, mydb.book.image, mydb.book.publish_date, mydb.book.author, mydb.handling_of_the_book.location], #mydb.book.id is needed for link
+                     groupby=mydb.book.title|mydb.handling_of_the_book.location, #group by book title and location
+                     deletable = False,
+                     editable = False,
+                     create = False,
+                     maxtextlength=100,
+                     details = False,
+                     csv = False,
+                         links=[dict( header='Book', body= lambda row: A( SPAN('Anzahl: ',_style='color:white')+ SPAN(str( mydb( (mydb.handling_of_the_book.location == row.handling_of_the_book.location) & (mydb.handling_of_the_book.book == row.book.id ) & (mydb.handling_of_the_book.status == 17)).count()),_class='badge badge-light'), #create reserve button
+                        _class='btn btn-primary',
+                        _name='btnUpdate'
+                     )), #counter that provides information about the amount of available copies of a book
+                     dict( header='Reservation', body= lambda row: A(T('Reserve'), #create reserve button
+                        _href=URL('user', 'reserve_book', args=str(row.book.id) + "&" + str(row.handling_of_the_book.location) ), #send book id and location id as argument
+                        _class='button btn btn-default',
+                        _name='btnUpdate'
+                     ))
+                     ],
+    )
+ 
+    return {'book_overview':grid}
+@auth.requires(auth.has_membership('approved_user'))
+def reserve_book():
+    request_args = request.args(0).split("_",-1) #first arg book id second arg location id
+    hb_id = mydb( (mydb.handling_of_the_book.book == request_args[0]) & (mydb.handling_of_the_book.location == request_args[1]) & (mydb.handling_of_the_book.status == 17) ).select(mydb.handling_of_the_book.id, limitby=(0, 1))[0]["id"] #select one copy of a book whith title and location according to function arguments and with status free
+    mydb(mydb.handling_of_the_book.id == hb_id ).update(status=21) #set status of corresponding book to 'waiting for checkout'
+    mydb.book_order_checkout.insert(check_out=request.now,username=auth.user.first_name,user_id=auth.user_id,status=21,handling_of_the_book=hb_id) #create new record in table book_order_checkout
+    redirect(URL('user', 'book_overview')) #redirect to book overview page
+
+def order_books():
+
+    t = SQLFORM.grid( handling_of_the_book,
+                    #user_signature=False,
+                     fields = ['book'],
+                     maxtextlength=200,
+                     deletable = False,
+                     editable = False,
+                     create = False,
+                     details = False,
+                     csv = False,
+                     links = [
+                         {'header':'book_count','body':lambda row: generate_free_books_count(row)},
+                         {'header':'order_book', 'body':lambda row: A('link', _href=URL(order_me, args=[row.id]))}
+                     ]
+                    )
+    return {'order_books':t}
