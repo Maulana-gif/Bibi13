@@ -209,7 +209,7 @@ def new_hofb():
 
     #adding quantity label and field, to the form, using the correct format (structure, classes, ids, ...)
     form[0].insert(-1, quantity_element)
-
+    #hello world
     #TODO (1) handle the form input
     #TODO (2) create a new handling_of_the_book row "quantity" times, and insert them in the db
     #DONE (3) validate quantity (1 or more, error on 0 or negative)
